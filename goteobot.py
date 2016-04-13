@@ -64,15 +64,15 @@ def get_invests(project_id):
 
 def msg_invest(invest):
     m = "Yeah! A new contribution of"
-    m += " **%i %s**" % (invest['amount'], invest['currency'])
+    m += " *%i %s*" % (invest['amount'], invest['currency'])
     if invest['project']:
         prj = get_project(invest['project'])
         if prj:
-            m += " for [%s](%s)" % (prj['name'], prj['project-url'])
+            m += " to [%s](%s)" % (prj['name'], prj['project-url'])
         else:
-            m += " for *unknown project*"
+            m += " to *unknown project*"
     else:
-        m += " to the **virtual wallet**"
+        m += " to the *virtual wallet*"
     return m
 
 def filter_new_invests(invests):
