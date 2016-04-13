@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# This script will run all operations needed in order to provide
+# a self-contained environment for the pytohn app
+#
+
+PYEXE=$(env which python3)
+
+/usr/bin/virtualenv -p $PYEXE virtualenv
+source virtualenv/bin/activate
+pip install -r requirements.txt
+
+if [ $? == "0" ]; then
+	echo -e "\e[32mYour can run now the bot:\e[0m"
+	echo "./goteobot"
+fi

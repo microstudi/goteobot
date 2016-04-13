@@ -1,0 +1,8 @@
+/cover
+__pycache__
+.coverage
+*.pyc
+*.log
+*~
+virtualenv
+config.py
