@@ -24,7 +24,7 @@ import logging
 import requests
 from time import strftime, localtime
 from email.utils import parsedate_to_datetime
-from datetime import datetime
+from datetime import datetime, timedelta
 import config
 
 # Enable logging
@@ -87,8 +87,9 @@ def subscribe(bot, update, args):
             prj = None
             invest = get_last_invest(project_id)
             date = parsedate_to_datetime(invest['date-updated'])
-            if date < datetime.now():
-                logger.info("SKIPPED INVEST [%s] UPDATED [%s]" % (invest['id'], invest['date-updated']))
+            now = datetime.now() - timedelta(seconds=config.POLL_FREQUENCY)
+            if date < now:
+                logger.info("SKIPPED INVEST [%s] UPDATED [%s] < NOW [%s]" % (invest['id'], invest['date-updated'], now))
                 return
 
             logger.info("INVEST [%s] OF [%i %s] UPDATED [%s] FOR PROJECT [%s]" % (invest['id'],
