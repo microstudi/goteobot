@@ -30,11 +30,13 @@ import config
 # Enable logging
 logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        # level=logging.INFO)
         level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 job_queue = None
-
+last_id = {}
+last_date = datetime.now() - timedelta(days=2)
 
 def get_project(project):
     r = requests.get(config.API_URL + '/projects/' + project, auth=(config.API_USER, config.API_KEY))
@@ -43,21 +45,55 @@ def get_project(project):
         return project
     return None
 
-def get_last_invest(project):
+def get_invests(project_id):
     payload = {
-        'limit' : 1,
-        'from_date': strftime('%Y-%m-%d', localtime())
+        'limit' : 5,
+        'from_date': last_date.strftime('%Y-%m-%d')
     }
-    if project is not '*':
-        payload['project'] = project,
-
-    r = requests.get(config.API_URL + '/invests', params=payload, auth=(config.API_USER, config.API_KEY))
+    if project_id is not '*':
+        payload['project'] = project_id,
+    print(payload)
+    r = requests.get(config.API_URL + '/invests/', params=payload, auth=(config.API_USER, config.API_KEY))
+    print("REQUEST", r)
     if r.status_code == 200:
         invests = r.json()
         if 'items' in invests and invests['items']:
-            return invests['items'][0]
+            # print(invests['items'], 'REVERSE', list(reversed(invests['items'])))
+            return list(reversed(invests['items']))
     return None
 
+def msg_invest(invest):
+    m = "Yeah! A new contribution of"
+    m += " **%i %s**" % (invest['amount'], invest['currency'])
+    if invest['project']:
+        prj = get_project(invest['project'])
+        if prj:
+            m += " for [%s](%s)" % (prj['name'], prj['project-url'])
+        else:
+            m += " for *unknown project*"
+    else:
+        m += " to the **virtual wallet**"
+    return m
+
+def filter_new_invests(invests):
+    ret = []
+    for i in invests:
+
+        logger.info("INVEST %s of %i %s" % (i['id'], i['amount'], i['currency']))
+
+        print('lASTID', last_id)
+
+        if i['project'] not in last_id:
+            last_id[i['project']] = 0
+        if i['id'] > last_id[i['project']]:
+            ret.append(i)
+            logger.info("ADDING INVEST %s" % i['id'])
+            last_id[i['project']] = i['id']
+            last_date = parsedate_to_datetime(i['date-invested'])
+
+    # print('LAST_ID', last_id, 'INVESTS', ret)
+
+    return ret
 
 # Define a few command handlers. These usually take the two arguments bot and
 # update. Error handlers also receive the raised TelegramError object in error.
@@ -71,47 +107,44 @@ def subscribe(bot, update, args):
         # args[0] should contain the project to follow
         project_id = args[0]
         project = None
-        t = "Subscribed for updates in %s" % project_id
-        if project_id == '*':
-            t = "Subscribed to all projects!"
-        else:
+        if project_id != '*':
             project = get_project(project_id)
             if project is None:
                 bot.sendMessage(chat_id, text='Sorry, project not found!')
                 raise ValueError;
 
+        logger.info("NEW SUBSCRIPTION FOR [%s]" % project_id)
+        print(update.message)
+
         def updates(bot):
             """ Inner function to send the updates message """
-            m = "Yeah! A new contribution of"
-            invest = None
-            prj = None
-            invest = get_last_invest(project_id)
-            date = parsedate_to_datetime(invest['date-updated'])
-            now = datetime.now() - timedelta(seconds=config.POLL_FREQUENCY)
-            if date < now:
-                logger.info("SKIPPED INVEST [%s] UPDATED [%s] < NOW [%s]" % (invest['id'], invest['date-updated'], now))
+
+            invests = get_invests(project_id)
+            if not invests:
+                logger.info("NO INVESTS FOUND FOR [%s]" % project_id)
                 return
 
-            logger.info("INVEST [%s] OF [%i %s] UPDATED [%s] FOR PROJECT [%s]" % (invest['id'],
-                                                                                  invest['amount'],
-                                                                                  invest['currency'],
-                                                                                  invest['date-updated'],
-                                                                                  invest['project']))
+            invests = filter_new_invests(invests)
+            logger.info("TOTAL INVEST FOUND: %i" % len(invests))
 
-            m += " **%i %s**" % (invest['amount'], invest['currency'])
-            if invest['project']:
-                if project_id == invest['project']:
-                    prj = project.copy()
-                else:
-                    prj = get_project(invest['project'])
-                m += " for [%s](%s)" % (prj['name'], prj['project-url'])
-            else:
-                m += " to the virtual wallet"
+            for invest in invests:
+                logger.info("INVEST [%s] OF [%i %s] UPDATED [%s] FOR PROJECT [%s]" % (invest['id'],
+                                                                                      invest['amount'],
+                                                                                      invest['currency'],
+                                                                                      invest['date-invested'],
+                                                                                      invest['project']))
+                bot.sendMessage(chat_id,
+                                text=msg_invest(invest),
+                                parse_mode=ParseMode.MARKDOWN)
 
-            bot.sendMessage(chat_id, text=m, parse_mode=ParseMode.MARKDOWN)
 
         # Add job to queue
         job_queue.put(updates, config.POLL_FREQUENCY)
+
+        t = "Subscribed to all projects!"
+        if project:
+            t = "Subscribed for project %s" % project['name']
+
         bot.sendMessage(chat_id, text=t)
 
     except IndexError:
