@@ -22,7 +22,6 @@ from telegram.ext import Updater
 from telegram import ParseMode
 import logging
 import requests
-from time import strftime, localtime
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timedelta
 import config
@@ -52,19 +51,31 @@ def get_invests(project_id):
     }
     if project_id is not '*':
         payload['project'] = project_id,
-    print(payload)
     r = requests.get(config.API_URL + '/invests/', params=payload, auth=(config.API_USER, config.API_KEY))
-    print("REQUEST", r)
     if r.status_code == 200:
         invests = r.json()
         if 'items' in invests and invests['items']:
-            # print(invests['items'], 'REVERSE', list(reversed(invests['items'])))
             return list(reversed(invests['items']))
     return None
 
+def msg_yell(amount=0):
+    if amount > 100:
+        return "Yabadabadu!"
+    if amount >= 100:
+        return "Amazing!"
+    if amount >= 50:
+        return "Great!"
+    if amount >= 20:
+        return "Good!"
+    if amount >= 10:
+        return "Cool!"
+    if amount >= 5:
+        return "Not bad!"
+    return 'Ahem, that could be better...'
+
 def msg_invest(invest):
-    m = "Yeah! A new contribution of"
-    m += " *%i %s*" % (invest['amount'], invest['currency'])
+    m = "*%s*" % msg_yell(invest['amount'])
+    m += " A new *%i %s* contribution" % (invest['amount'], invest['currency'])
     if invest['project']:
         prj = get_project(invest['project'])
         if prj:
@@ -76,12 +87,14 @@ def msg_invest(invest):
     return m
 
 def filter_new_invests(invests):
+    global last_date
+
     ret = []
     for i in invests:
 
         logger.info("INVEST %s of %i %s" % (i['id'], i['amount'], i['currency']))
 
-        print('lASTID', last_id)
+        # print('lASTID', last_id)
 
         if i['project'] not in last_id:
             last_id[i['project']] = 0
@@ -114,7 +127,7 @@ def subscribe(bot, update, args):
                 raise ValueError;
 
         logger.info("NEW SUBSCRIPTION FOR [%s]" % project_id)
-        print(update.message)
+        # print(update.message)
 
         def updates(bot):
             """ Inner function to send the updates message """
