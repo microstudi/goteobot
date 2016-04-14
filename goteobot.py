@@ -39,6 +39,7 @@ last_date = datetime.now() - timedelta(days=1)
 
 def get_project(project):
     r = requests.get(config.API_URL + '/projects/' + project, auth=(config.API_USER, config.API_KEY))
+    logger.info("REQUEST %s %s" % (config.API_URL + '/projects/' + project, r))
     if r.status_code == 200:
         project = r.json()
         return project
@@ -52,8 +53,10 @@ def get_invests(project_id):
     if project_id is not '*':
         payload['project'] = project_id,
     r = requests.get(config.API_URL + '/invests/', params=payload, auth=(config.API_USER, config.API_KEY))
+    logger.info("REQUEST %s %s PARAMS %s" % (config.API_URL + '/invests/', r, payload))
     if r.status_code == 200:
         invests = r.json()
+        # print(invests)
         if 'items' in invests and invests['items']:
             return list(reversed(invests['items']))
     return None
