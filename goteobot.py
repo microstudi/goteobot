@@ -35,7 +35,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 job_queue = None
 last_id = {}
-last_date = datetime.now() - timedelta(days=2)
+last_date = datetime.now() - timedelta(days=1)
 
 def get_project(project):
     r = requests.get(config.API_URL + '/projects/' + project, auth=(config.API_USER, config.API_KEY))
