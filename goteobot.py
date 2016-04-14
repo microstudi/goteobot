@@ -76,6 +76,9 @@ def msg_yell(amount=0):
 def msg_invest(invest):
     m = "*%s*" % msg_yell(invest['amount'])
     m += " A new *%i %s* contribution" % (invest['amount'], invest['currency'])
+    if invest['region']:
+        m+= " from _%s_" % invest['region']
+
     if invest['project']:
         prj = get_project(invest['project'])
         if prj:
